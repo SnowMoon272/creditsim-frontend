@@ -1,2 +1,2 @@
 // Exportar estilos globales y tema
-// Ejemplo: export { theme } from './theme';
+export { default as GlobalStyles } from './GlobalStyles';
