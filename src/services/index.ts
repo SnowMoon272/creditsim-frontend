@@ -1,4 +1,4 @@
 // Exportar todos los servicios desde aquí
-// export * from './api';
-// export * from './authService';
+export { default as api } from './api';
+export { default as authService } from './authService';
 // export * from './simulationService';
