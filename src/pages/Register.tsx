@@ -3,6 +3,13 @@ import type { FormEvent } from "react";
 import styled from "styled-components";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../hooks";
+import {
+  validateEmail,
+  validatePassword,
+  validateConfirmPassword,
+  limitLength,
+  FIELD_LIMITS,
+} from "../utils";
 
 const Container = styled.div`
   min-height: 100vh;
@@ -149,6 +156,13 @@ const ErrorMessage = styled.div`
   border-left: 4px solid #c53030;
 `;
 
+const FieldError = styled.span`
+  color: #e53e3e;
+  font-size: 0.85rem;
+  margin-top: 4px;
+  display: block;
+`;
+
 const Footer = styled.div`
   margin-top: 24px;
   text-align: center;
@@ -171,6 +185,9 @@ const Register = () => {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [confirmPasswordError, setConfirmPasswordError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -178,13 +195,54 @@ const Register = () => {
   const { register } = useAuth();
   const navigate = useNavigate();
 
+  const handleValidateEmail = (value: string): boolean => {
+    const result = validateEmail(value);
+    setEmailError(result.error);
+    return result.isValid;
+  };
+
+  const handleValidatePassword = (value: string): boolean => {
+    const result = validatePassword(value);
+    setPasswordError(result.error);
+    return result.isValid;
+  };
+
+  const handleValidateConfirmPassword = (value: string): boolean => {
+    const result = validateConfirmPassword(password, value);
+    setConfirmPasswordError(result.error);
+    return result.isValid;
+  };
+
+  const handleEmailChange = (value: string) => {
+    const limited = limitLength(value, FIELD_LIMITS.EMAIL_MAX);
+    setEmail(limited);
+    if (emailError) handleValidateEmail(limited);
+  };
+
+  const handlePasswordChange = (value: string) => {
+    const limited = limitLength(value, FIELD_LIMITS.PASSWORD_MAX);
+    setPassword(limited);
+    if (passwordError) handleValidatePassword(limited);
+    // Revalidar confirmPassword si ya fue llenado
+    if (confirmPassword) handleValidateConfirmPassword(confirmPassword);
+  };
+
+  const handleConfirmPasswordChange = (value: string) => {
+    const limited = limitLength(value, FIELD_LIMITS.PASSWORD_MAX);
+    setConfirmPassword(limited);
+    if (confirmPasswordError) handleValidateConfirmPassword(limited);
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
 
-    // Validar que las contraseñas coincidan
-    if (password !== confirmPassword) {
-      setError("Las contraseñas no coinciden");
+    // Validar todos los campos antes de enviar
+    const isEmailValid = handleValidateEmail(email);
+    const isPasswordValid = handleValidatePassword(password);
+    const isConfirmPasswordValid = handleValidateConfirmPassword(confirmPassword);
+
+    if (!isEmailValid || !isPasswordValid || !isConfirmPasswordValid) {
       return;
     }
 
@@ -217,13 +275,16 @@ const Register = () => {
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
-              type="email"
+              type="text"
               placeholder="tu@email.com"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
+              onChange={(e) => handleEmailChange(e.target.value)}
+              onBlur={(e) => handleValidateEmail(e.target.value)}
               disabled={loading}
+              maxLength={FIELD_LIMITS.EMAIL_MAX}
+              style={{ borderColor: emailError ? '#e53e3e' : '#e2e8f0' }}
             />
+            {emailError && <FieldError>{emailError}</FieldError>}
           </FormGroup>
 
           <FormGroup>
@@ -234,10 +295,11 @@ const Register = () => {
                 type={showPassword ? "text" : "password"}
                 placeholder="••••••••"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
+                onChange={(e) => handlePasswordChange(e.target.value)}
+                onBlur={(e) => handleValidatePassword(e.target.value)}
                 disabled={loading}
+                maxLength={FIELD_LIMITS.PASSWORD_MAX}
+                style={{ borderColor: passwordError ? '#e53e3e' : '#e2e8f0' }}
               />
               <TogglePasswordButton
                 type="button"
@@ -256,6 +318,7 @@ const Register = () => {
                 )}
               </TogglePasswordButton>
             </PasswordInputWrapper>
+            {passwordError && <FieldError>{passwordError}</FieldError>}
           </FormGroup>
 
           <FormGroup>
@@ -266,10 +329,11 @@ const Register = () => {
                 type={showConfirmPassword ? "text" : "password"}
                 placeholder="••••••••"
                 value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                minLength={6}
+                onChange={(e) => handleConfirmPasswordChange(e.target.value)}
+                onBlur={(e) => handleValidateConfirmPassword(e.target.value)}
                 disabled={loading}
+                maxLength={FIELD_LIMITS.PASSWORD_MAX}
+                style={{ borderColor: confirmPasswordError ? '#e53e3e' : '#e2e8f0' }}
               />
               <TogglePasswordButton
                 type="button"
@@ -288,6 +352,7 @@ const Register = () => {
                 )}
               </TogglePasswordButton>
             </PasswordInputWrapper>
+            {confirmPasswordError && <FieldError>{confirmPasswordError}</FieldError>}
           </FormGroup>
 
           <Button type="submit" disabled={loading}>
