@@ -1,2 +1,5 @@
 // Exportar todas las páginas desde aquí
-// Ejemplo: export { default as LoginPage } from './LoginPage';
+export { default as Welcome } from "./Welcome";
+export { default as Login } from "./Login";
+export { default as Register } from "./Register";
+
