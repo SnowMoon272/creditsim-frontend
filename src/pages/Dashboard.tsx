@@ -1,7 +1,9 @@
+import { useState } from "react";
 import styled from "styled-components";
-import { useAuth, useLocalStorage } from "../hooks";
+import { useAuth } from "../hooks";
 import { useNavigate } from "react-router-dom";
-import { useEffect } from "react";
+import { SimulationForm, Summary, AmortizationTable } from "../components";
+import type { SimulationFormData } from "../components/SimulationForm";
 
 const Container = styled.div`
   min-height: 100vh;
@@ -18,18 +20,33 @@ const Header = styled.header`
   border-radius: 10px;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
   margin-bottom: 30px;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    gap: 16px;
+    padding: 20px;
+  }
 `;
 
 const Title = styled.h1`
   font-size: 1.8rem;
   color: #2d3748;
   margin: 0;
+
+  @media (max-width: 768px) {
+    font-size: 1.4rem;
+  }
 `;
 
 const UserInfo = styled.div`
   display: flex;
   align-items: center;
   gap: 20px;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    gap: 12px;
+  }
 `;
 
 const Email = styled.span`
@@ -59,68 +76,95 @@ const LogoutButton = styled.button`
 `;
 
 const Content = styled.div`
-  background: white;
-  border-radius: 10px;
-  padding: 40px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-  text-align: center;
+  max-width: 1200px;
+  margin: 0 auto;
 `;
 
-const Message = styled.p`
-  font-size: 1.2rem;
-  color: #4a5568;
-  margin-bottom: 20px;
-`;
+interface PagoCuota {
+  numero: number;
+  saldo_inicial: number;
+  cuota: number;
+  interes: number;
+  amortizacion: number;
+  saldo_final: number;
+}
 
-const StatsCard = styled.div`
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 12px;
-  padding: 24px;
-  margin-top: 30px;
-  color: white;
-`;
-
-const StatsTitle = styled.h3`
-  font-size: 1.1rem;
-  margin: 0 0 16px 0;
-  opacity: 0.9;
-`;
-
-const StatItem = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-
-  &:last-child {
-    border-bottom: none;
-  }
-`;
-
-const StatLabel = styled.span`
-  font-size: 0.95rem;
-  opacity: 0.9;
-`;
-
-const StatValue = styled.span`
-  font-size: 1.1rem;
-  font-weight: 600;
-`;
+interface SimulationResult {
+  cuotaMensual: number;
+  totalInteres: number;
+  totalPagar: number;
+  plazoMeses: number;
+  tabla: PagoCuota[];
+}
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  // Hook useLocalStorage para demostrar persistencia
-  const [visitCount, setVisitCount] = useLocalStorage("dashboardVisits", 0);
-  const [lastVisit, setLastVisit] = useLocalStorage<string | null>("lastVisitDate", null);
+  const [loading, setLoading] = useState(false);
+  const [simulationResult, setSimulationResult] = useState<SimulationResult | null>(null);
 
-  // Incrementar contador cada vez que se carga el dashboard
-  //useEffect(() => {
-  //  setVisitCount((prev) => prev + 1);
-  //  setLastVisit(new Date().toLocaleString("es-ES"));
-  //}, [setVisitCount, setLastVisit]);
+  // Calcular amortización usando Sistema Francés (cuota fija)
+  const calcularAmortizacion = (
+    monto: number,
+    tasaAnual: number,
+    plazoMeses: number
+  ): SimulationResult => {
+    const tasaMensual = tasaAnual / 100 / 12;
+    
+    // Fórmula de cuota fija: C = P * (i * (1 + i)^n) / ((1 + i)^n - 1)
+    const cuotaMensual =
+      (monto * tasaMensual * Math.pow(1 + tasaMensual, plazoMeses)) /
+      (Math.pow(1 + tasaMensual, plazoMeses) - 1);
+
+    const tabla: PagoCuota[] = [];
+    let saldoActual = monto;
+
+    for (let mes = 1; mes <= plazoMeses; mes++) {
+      const interes = saldoActual * tasaMensual;
+      const amortizacion = cuotaMensual - interes;
+      const saldoFinal = saldoActual - amortizacion;
+
+      tabla.push({
+        numero: mes,
+        saldo_inicial: saldoActual,
+        cuota: cuotaMensual,
+        interes: interes,
+        amortizacion: amortizacion,
+        saldo_final: Math.max(0, saldoFinal), // Evitar negativos por redondeo
+      });
+
+      saldoActual = saldoFinal;
+    }
+
+    const totalPagar = cuotaMensual * plazoMeses;
+    const totalInteres = totalPagar - monto;
+
+    return {
+      cuotaMensual,
+      totalInteres,
+      totalPagar,
+      plazoMeses,
+      tabla,
+    };
+  };
+
+  const handleSimulate = (data: SimulationFormData) => {
+    // Simular loading
+    setLoading(true);
+    
+    // Simular delay de API
+    setTimeout(() => {
+      const result = calcularAmortizacion(
+        data.monto,
+        data.tasaAnual,
+        data.plazoMeses
+      );
+      
+      setSimulationResult(result);
+      setLoading(false);
+    }, 500);
+  };
 
   const handleLogout = () => {
     logout();
@@ -130,7 +174,7 @@ const Dashboard = () => {
   return (
     <Container>
       <Header>
-        <Title>CreditSim - Dashboard</Title>
+        <Title>💳 CreditSim - Simulador de Crédito</Title>
         <UserInfo>
           <Email>{user?.email}</Email>
           <LogoutButton onClick={handleLogout}>Cerrar Sesión</LogoutButton>
@@ -138,25 +182,22 @@ const Dashboard = () => {
       </Header>
 
       <Content>
-        <Message>¡Bienvenido al Dashboard!</Message>
-        <Message style={{ fontSize: "1rem", color: "#718096" }}>
-          El simulador de crédito se implementará en la siguiente fase.
-        </Message>
+        {/* Formulario de simulación */}
+        <SimulationForm onSubmit={handleSimulate} loading={loading} />
 
-        <StatsCard>
-          <StatsTitle>📊 Hook useLocalStorage en Acción</StatsTitle>
-          <StatItem>
-            <StatLabel>Visitas al Dashboard:</StatLabel>
-            <StatValue>{visitCount}</StatValue>
-          </StatItem>
-          <StatItem>
-            <StatLabel>Última Visita:</StatLabel>
-            <StatValue>{lastVisit || "Primera vez"}</StatValue>
-          </StatItem>
-          <Message style={{ fontSize: "0.85rem", marginTop: "16px", marginBottom: "0" }}>
-            💡 Estos datos persisten al recargar la página usando localStorage
-          </Message>
-        </StatsCard>
+        {/* Resultados de la simulación */}
+        {simulationResult && (
+          <>
+            <Summary
+              cuotaMensual={simulationResult.cuotaMensual}
+              totalInteres={simulationResult.totalInteres}
+              totalPagar={simulationResult.totalPagar}
+              plazoMeses={simulationResult.plazoMeses}
+            />
+
+            <AmortizationTable tabla={simulationResult.tabla} />
+          </>
+        )}
       </Content>
     </Container>
   );

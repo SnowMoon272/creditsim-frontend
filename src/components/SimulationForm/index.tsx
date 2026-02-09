@@ -22,6 +22,16 @@ const Form = styled.form`
   gap: var(--space-lg);
 `;
 
+const FormRow = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-lg);
+
+  @media (max-width: 968px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
 const FormGroup = styled.div`
   display: flex;
   flex-direction: column;
@@ -119,11 +129,31 @@ const SimulationForm = ({ onSubmit, loading = false }: SimulationFormProps) => {
   const [plazoMeses, setPlazoMeses] = useState<string>("");
   const [errors, setErrors] = useState<Partial<SimulationFormData>>({});
 
+  // Función para formatear número con comas
+  const formatNumberWithCommas = (value: string): string => {
+    // Remover todas las comas existentes
+    const withoutCommas = value.replace(/,/g, "");
+    
+    // Si está vacío, retornar vacío
+    if (!withoutCommas) return "";
+    
+    // Separar parte entera de decimal (si existe)
+    const parts = withoutCommas.split(".");
+    const integerPart = parts[0];
+    const decimalPart = parts[1];
+    
+    // Agregar comas cada 3 dígitos desde la derecha
+    const withCommas = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    
+    // Retornar con decimal si lo tenía
+    return decimalPart !== undefined ? `${withCommas}.${decimalPart}` : withCommas;
+  };
+
   const validateForm = (): boolean => {
     const newErrors: Partial<SimulationFormData> = {};
 
-    // Validar monto
-    const montoNum = parseFloat(monto);
+    // Validar monto (remover comas antes de parsear)
+    const montoNum = parseFloat(monto.replace(/,/g, ""));
     if (!monto || isNaN(montoNum)) {
       newErrors.monto = 1;
     } else if (montoNum <= 0) {
@@ -160,16 +190,21 @@ const SimulationForm = ({ onSubmit, loading = false }: SimulationFormProps) => {
     }
 
     onSubmit({
-      monto: parseFloat(monto),
+      monto: parseFloat(monto.replace(/,/g, "")), // Remover comas antes de enviar
       tasaAnual: parseFloat(tasaAnual),
       plazoMeses: parseInt(plazoMeses),
     });
   };
 
   const handleMontoChange = (value: string) => {
+    // Remover comas para validar
+    const withoutCommas = value.replace(/,/g, "");
+    
     // Solo permitir números y punto decimal
-    if (value === "" || /^\d*\.?\d*$/.test(value)) {
-      setMonto(value);
+    if (value === "" || /^\d*\.?\d*$/.test(withoutCommas)) {
+      // Formatear con comas y guardar
+      const formatted = formatNumberWithCommas(withoutCommas);
+      setMonto(formatted);
       if (errors.monto) {
         setErrors({ ...errors, monto: undefined });
       }
@@ -201,62 +236,64 @@ const SimulationForm = ({ onSubmit, loading = false }: SimulationFormProps) => {
       <FormTitle>💳 Simulador de Crédito</FormTitle>
 
       <Form onSubmit={handleSubmit}>
-        <FormGroup>
-          <Label htmlFor="monto">
-            💰 Monto del Crédito
-          </Label>
-          <Input
-            id="monto"
-            type="text"
-            placeholder="Ej: 10000"
-            value={monto}
-            onChange={(e) => handleMontoChange(e.target.value)}
-            disabled={loading}
-          />
-          {errors.monto ? (
-            <ErrorText>Ingresa un monto válido (entre $1 y $1,000,000)</ErrorText>
-          ) : (
-            <HelpText>Monto entre $1 y $1,000,000</HelpText>
-          )}
-        </FormGroup>
+        <FormRow>
+          <FormGroup>
+            <Label htmlFor="monto">
+              💰 Monto del Crédito
+            </Label>
+            <Input
+              id="monto"
+              type="text"
+              placeholder="Ej: 10,000"
+              value={monto}
+              onChange={(e) => handleMontoChange(e.target.value)}
+              disabled={loading}
+            />
+            {errors.monto ? (
+              <ErrorText>Ingresa un monto válido (entre $1 y $1,000,000)</ErrorText>
+            ) : (
+              <HelpText>Las comas se agregan automáticamente</HelpText>
+            )}
+          </FormGroup>
 
-        <FormGroup>
-          <Label htmlFor="tasaAnual">
-            📊 Tasa de Interés Anual (%)
-          </Label>
-          <Input
-            id="tasaAnual"
-            type="text"
-            placeholder="Ej: 12.5"
-            value={tasaAnual}
-            onChange={(e) => handleTasaChange(e.target.value)}
-            disabled={loading}
-          />
-          {errors.tasaAnual ? (
-            <ErrorText>Ingresa una tasa válida (entre 0.01% y 100%)</ErrorText>
-          ) : (
-            <HelpText>Tasa anual entre 0.01% y 100%</HelpText>
-          )}
-        </FormGroup>
+          <FormGroup>
+            <Label htmlFor="tasaAnual">
+              📊 Tasa de Interés Anual (%)
+            </Label>
+            <Input
+              id="tasaAnual"
+              type="text"
+              placeholder="Ej: 12.5"
+              value={tasaAnual}
+              onChange={(e) => handleTasaChange(e.target.value)}
+              disabled={loading}
+            />
+            {errors.tasaAnual ? (
+              <ErrorText>Ingresa una tasa válida (entre 0.01% y 100%)</ErrorText>
+            ) : (
+              <HelpText>Tasa anual entre 0.01% y 100%</HelpText>
+            )}
+          </FormGroup>
 
-        <FormGroup>
-          <Label htmlFor="plazoMeses">
-            📅 Plazo (meses)
-          </Label>
-          <Input
-            id="plazoMeses"
-            type="text"
-            placeholder="Ej: 12"
-            value={plazoMeses}
-            onChange={(e) => handlePlazoChange(e.target.value)}
-            disabled={loading}
-          />
-          {errors.plazoMeses ? (
-            <ErrorText>Ingresa un plazo válido (entre 1 y 360 meses)</ErrorText>
-          ) : (
-            <HelpText>Plazo entre 1 y 360 meses (30 años máximo)</HelpText>
-          )}
-        </FormGroup>
+          <FormGroup>
+            <Label htmlFor="plazoMeses">
+              📅 Plazo (meses)
+            </Label>
+            <Input
+              id="plazoMeses"
+              type="text"
+              placeholder="Ej: 12"
+              value={plazoMeses}
+              onChange={(e) => handlePlazoChange(e.target.value)}
+              disabled={loading}
+            />
+            {errors.plazoMeses ? (
+              <ErrorText>Ingresa un plazo válido (entre 1 y 360 meses)</ErrorText>
+            ) : (
+              <HelpText>Plazo entre 1 y 360 meses (30 años máximo)</HelpText>
+            )}
+          </FormGroup>
+        </FormRow>
 
         <Button type="submit" disabled={loading}>
           {loading ? "Calculando..." : "🎯 Simular Crédito"}
