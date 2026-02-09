@@ -89,12 +89,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   /**
    * Logout - Cierra sesión y limpia el estado
+   * Limpia TODO el localStorage incluyendo datos del simulador
    */
   const logout = (): void => {
     setUser(null);
     setToken(null);
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    // Limpiar todo el localStorage (token, user, y datos del simulador)
+    localStorage.clear();
   };
 
   // Valor que se proveerá a todos los componentes hijos
