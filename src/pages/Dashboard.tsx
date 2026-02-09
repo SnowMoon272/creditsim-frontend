@@ -4,6 +4,8 @@ import { useAuth } from "../hooks";
 import { useNavigate } from "react-router-dom";
 import { SimulationForm, Summary, AmortizationTable } from "../components";
 import type { SimulationFormData } from "../components/SimulationForm";
+import { simulationService } from "../services";
+import axios from "axios";
 
 const Container = styled.div`
   min-height: 100vh;
@@ -80,6 +82,18 @@ const Content = styled.div`
   margin: 0 auto;
 `;
 
+const ErrorMessage = styled.div`
+  background: linear-gradient(135deg, #fc6767 0%, #ec4545 100%);
+  color: white;
+  padding: 16px 24px;
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-lg);
+  text-align: center;
+  font-weight: 500;
+  box-shadow: var(--shadow-lg);
+  animation: slideUp 0.3s ease-out;
+`;
+
 interface PagoCuota {
   numero: number;
   saldo_inicial: number;
@@ -97,73 +111,104 @@ interface SimulationResult {
   tabla: PagoCuota[];
 }
 
+interface ValidationError {
+  type: string;
+  loc: (string | number)[];
+  msg: string;
+  input?: unknown;
+}
+
 const Dashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(false);
   const [simulationResult, setSimulationResult] = useState<SimulationResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // Calcular amortización usando Sistema Francés (cuota fija)
-  const calcularAmortizacion = (
-    monto: number,
-    tasaAnual: number,
-    plazoMeses: number
-  ): SimulationResult => {
-    const tasaMensual = tasaAnual / 100 / 12;
-    
-    // Fórmula de cuota fija: C = P * (i * (1 + i)^n) / ((1 + i)^n - 1)
-    const cuotaMensual =
-      (monto * tasaMensual * Math.pow(1 + tasaMensual, plazoMeses)) /
-      (Math.pow(1 + tasaMensual, plazoMeses) - 1);
+  const handleSimulate = async (data: SimulationFormData) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Llamar a la API del backend
+      const response = await simulationService.simulate({
+        amount: data.monto,
+        annual_rate: data.tasaAnual,
+        term_months: data.plazoMeses,
+      });
+      
+      // Transformar respuesta del backend al formato esperado por los componentes
+      const tabla = response.amortization_table.map((row, index) => {
+        // Calcular saldo inicial: para el primer mes es el monto total,
+        // para los demás es el saldo final del mes anterior
+        const saldo_inicial =
+          index === 0
+            ? response.amount
+            : response.amortization_table[index - 1].balance;
 
-    const tabla: PagoCuota[] = [];
-    let saldoActual = monto;
-
-    for (let mes = 1; mes <= plazoMeses; mes++) {
-      const interes = saldoActual * tasaMensual;
-      const amortizacion = cuotaMensual - interes;
-      const saldoFinal = saldoActual - amortizacion;
-
-      tabla.push({
-        numero: mes,
-        saldo_inicial: saldoActual,
-        cuota: cuotaMensual,
-        interes: interes,
-        amortizacion: amortizacion,
-        saldo_final: Math.max(0, saldoFinal), // Evitar negativos por redondeo
+        return {
+          numero: row.month,
+          saldo_inicial: saldo_inicial,
+          cuota: row.payment,
+          interes: row.interest,
+          amortizacion: row.principal,
+          saldo_final: row.balance,
+        };
       });
 
-      saldoActual = saldoFinal;
+      setSimulationResult({
+        cuotaMensual: response.summary.monthly_payment,
+        totalInteres: response.summary.total_interest,
+        totalPagar: response.summary.total_payment,
+        plazoMeses: response.term_months,
+        tabla: tabla,
+      });
+    } catch (err: unknown) {
+      console.error('Error al simular:', err);
+      
+      // Manejar diferentes tipos de errores
+      if (axios.isAxiosError(err)) {
+        if (err.response?.status === 401) {
+          // Token expirado o inválido
+          setError('Tu sesión ha expirado. Por favor, inicia sesión nuevamente.');
+          setTimeout(() => {
+            logout();
+            navigate('/login');
+          }, 2000);
+        } else if (err.response?.status === 422) {
+          // Error de validación de Pydantic
+          const detail = err.response.data?.detail;
+          if (Array.isArray(detail)) {
+            // Formatear errores de validación
+            const errorMessages = detail.map((error: ValidationError) => error.msg).join(', ');
+            setError(`Error de validación: ${errorMessages}`);
+          } else if (typeof detail === 'string') {
+            setError(detail);
+          } else {
+            setError('Error de validación en los datos enviados.');
+          }
+        } else if (err.response?.data?.detail) {
+          // Error del backend con mensaje específico
+          const detail = err.response.data.detail;
+          setError(typeof detail === 'string' ? detail : 'Error al procesar la solicitud.');
+        } else {
+          // Error genérico
+          setError('Error al simular el crédito. Por favor, intenta nuevamente.');
+        }
+      } else {
+        // Error no relacionado con axios
+        setError('Error inesperado. Por favor, intenta nuevamente.');
+      }
+    } finally {
+      setLoading(false);
     }
-
-    const totalPagar = cuotaMensual * plazoMeses;
-    const totalInteres = totalPagar - monto;
-
-    return {
-      cuotaMensual,
-      totalInteres,
-      totalPagar,
-      plazoMeses,
-      tabla,
-    };
   };
 
-  const handleSimulate = (data: SimulationFormData) => {
-    // Simular loading
-    setLoading(true);
-    
-    // Simular delay de API
-    setTimeout(() => {
-      const result = calcularAmortizacion(
-        data.monto,
-        data.tasaAnual,
-        data.plazoMeses
-      );
-      
-      setSimulationResult(result);
-      setLoading(false);
-    }, 500);
+  const handleFormChange = () => {
+    // Limpiar resultados y errores cuando el usuario modifica los valores
+    setSimulationResult(null);
+    setError(null);
   };
 
   const handleLogout = () => {
@@ -183,7 +228,14 @@ const Dashboard = () => {
 
       <Content>
         {/* Formulario de simulación */}
-        <SimulationForm onSubmit={handleSimulate} loading={loading} />
+        <SimulationForm 
+          onSubmit={handleSimulate} 
+          loading={loading} 
+          onChange={handleFormChange}
+        />
+
+        {/* Mensaje de error */}
+        {error && <ErrorMessage>⚠️ {error}</ErrorMessage>}
 
         {/* Resultados de la simulación */}
         {simulationResult && (

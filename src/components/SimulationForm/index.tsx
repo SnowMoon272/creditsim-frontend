@@ -115,6 +115,7 @@ const Button = styled.button`
 interface SimulationFormProps {
   onSubmit: (data: SimulationFormData) => void;
   loading?: boolean;
+  onChange?: () => void; // Función que se llama cuando cambia algún valor
 }
 
 export interface SimulationFormData {
@@ -123,7 +124,7 @@ export interface SimulationFormData {
   plazoMeses: number;
 }
 
-const SimulationForm = ({ onSubmit, loading = false }: SimulationFormProps) => {
+const SimulationForm = ({ onSubmit, loading = false, onChange }: SimulationFormProps) => {
   const [monto, setMonto] = useState<string>("");
   const [tasaAnual, setTasaAnual] = useState<string>("");
   const [plazoMeses, setPlazoMeses] = useState<string>("");
@@ -208,6 +209,8 @@ const SimulationForm = ({ onSubmit, loading = false }: SimulationFormProps) => {
       if (errors.monto) {
         setErrors({ ...errors, monto: undefined });
       }
+      // Notificar que cambió un valor
+      onChange?.();
     }
   };
 
@@ -218,6 +221,8 @@ const SimulationForm = ({ onSubmit, loading = false }: SimulationFormProps) => {
       if (errors.tasaAnual) {
         setErrors({ ...errors, tasaAnual: undefined });
       }
+      // Notificar que cambió un valor
+      onChange?.();
     }
   };
 
@@ -228,6 +233,8 @@ const SimulationForm = ({ onSubmit, loading = false }: SimulationFormProps) => {
       if (errors.plazoMeses) {
         setErrors({ ...errors, plazoMeses: undefined });
       }
+      // Notificar que cambió un valor
+      onChange?.();
     }
   };
 
