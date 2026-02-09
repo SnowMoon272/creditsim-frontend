@@ -1,6 +1,6 @@
 import { useState } from "react";
 import styled from "styled-components";
-import { useAuth } from "../hooks";
+import { useAuth, useLocalStorage } from "../hooks";
 import { useNavigate } from "react-router-dom";
 import { SimulationForm, Summary, AmortizationTable } from "../components";
 import type { SimulationFormData } from "../components/SimulationForm";
@@ -123,7 +123,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(false);
-  const [simulationResult, setSimulationResult] = useState<SimulationResult | null>(null);
+  const [simulationResult, setSimulationResult] = useLocalStorage<SimulationResult | null>("creditSimResult", null);
   const [error, setError] = useState<string | null>(null);
 
   const handleSimulate = async (data: SimulationFormData) => {

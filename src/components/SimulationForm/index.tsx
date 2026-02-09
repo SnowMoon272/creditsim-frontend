@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import styled from "styled-components";
+import { useLocalStorage } from "../../hooks";
 
 const FormContainer = styled.div`
   background: white;
@@ -125,9 +126,9 @@ export interface SimulationFormData {
 }
 
 const SimulationForm = ({ onSubmit, loading = false, onChange }: SimulationFormProps) => {
-  const [monto, setMonto] = useState<string>("");
-  const [tasaAnual, setTasaAnual] = useState<string>("");
-  const [plazoMeses, setPlazoMeses] = useState<string>("");
+  const [monto, setMonto] = useLocalStorage<string>("creditSimMonto", "");
+  const [tasaAnual, setTasaAnual] = useLocalStorage<string>("creditSimTasa", "");
+  const [plazoMeses, setPlazoMeses] = useLocalStorage<string>("creditSimPlazo", "");
   const [errors, setErrors] = useState<Partial<SimulationFormData>>({});
 
   // Función para formatear número con comas
