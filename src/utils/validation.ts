@@ -15,7 +15,7 @@ export const EMAIL_REGEX = /^[a-zA-Z0-9][.a-zA-Z0-9_-]*@[a-zA-Z0-9][a-zA-Z0-9.-]
  * Límites de caracteres para campos
  */
 export const FIELD_LIMITS = {
-  EMAIL_MAX: 25,
+  EMAIL_MAX: 50,
   PASSWORD_MAX: 25,
   PASSWORD_MIN: 6,
 } as const;
