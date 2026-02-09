@@ -1,3 +1,5 @@
 // Exportar todos los componentes desde aquí
-// Ejemplo: export { default as Button } from './Button';
+export { default as ProtectedRoute } from "./ProtectedRoute";
+export { default as PublicRoute } from "./PublicRoute";
+export { default as Spinner } from "./Spinner";
 
